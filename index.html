@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>基金定投记录表</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --r50:#FCEBEB;--r100:#F7C1C1;--r200:#F09595;--r400:#E24B4A;
+  --r600:#A32D2D;--r800:#791F1F;--r900:#501313;
+  --gold:#c9933a;--gold-l:#f5e6c8;
+  --gpos:#2a7a44;--gneg:#A32D2D;
+}
+html,body{min-height:100%;background:#e8e0e0;font-family:'PingFang SC','Microsoft YaHei',sans-serif}
+.app-shell{background:#fff;border:1.5px solid #c8b8b8;border-radius:10px;box-shadow:0 4px 24px rgba(80,19,19,.13);margin:16px auto;width:calc(100vw - 32px);min-width:900px;min-height:500px;resize:both;overflow:auto;display:flex;flex-direction:column}
+.hd{background:var(--r800);color:#fff;padding:13px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid var(--gold);flex-shrink:0}
+.hd-left{display:flex;align-items:center;gap:10px}
+.hd-icon{font-size:22px;color:var(--gold)}
+.hd-title{font-size:17px;font-weight:600;letter-spacing:.06em}
+.hd-sub{font-size:11px;color:var(--r100);margin-top:2px;font-family:monospace}
+.hd-actions{display:flex;gap:8px;align-items:center}
+.stats{background:var(--r900);padding:10px 20px;display:grid;grid-template-columns:repeat(5,1fr);gap:10px;border-bottom:1px solid var(--r600);flex-shrink:0}
+.sc{text-align:center}
+.sc-label{font-size:10px;color:var(--r100);letter-spacing:.04em;margin-bottom:3px}
+.sc-val{font-size:16px;font-weight:600;font-family:monospace;color:#fff}
+.sc-val.pos{color:#7ee89a}.sc-val.neg{color:var(--r200)}
+
+/* 净值横幅 */
+.nav-banner{background:linear-gradient(90deg,#fef9ee,#fff8f0);border-bottom:1px solid #f0d9a0;padding:8px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;font-size:12px;flex-wrap:wrap}
+.nav-banner-label{color:#7a5a10;font-weight:500;white-space:nowrap}
+.nav-status{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.nav-chip{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #e0c870;border-radius:20px;padding:2px 10px;font-size:11px;color:#7a5a10;font-family:monospace;transition:all .15s}
+.nav-chip.loading{border-color:#ddd;color:#aaa}
+.nav-chip .chip-nav{color:var(--r600);font-weight:600}
+.nav-chip .chip-chg.up{color:var(--gpos)}.nav-chip .chip-chg.dn{color:var(--r600)}.nav-chip .chip-chg.flat{color:#aaa}
+.nav-update-time{color:#b08030;font-family:monospace;font-size:11px;white-space:nowrap}
+
+.tab-bar{display:flex;background:var(--r50);border-bottom:1px solid var(--r100);flex-shrink:0;overflow-x:auto}
+.tab{padding:9px 18px;font-size:12px;cursor:pointer;color:var(--r600);border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;flex-shrink:0}
+.tab.active{color:var(--r800);border-bottom-color:var(--r600);background:#fff;font-weight:600}
+.tab:hover:not(.active){background:var(--r100)}
+
+.toolbar{background:#fdf8f8;border-bottom:0.5px solid var(--r100);padding:7px 14px;display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.toolbar-hint{font-size:11px;color:#bbb;margin-left:auto}
+
+.tbl-wrap{flex:1;overflow:auto;min-height:120px}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:1180px;table-layout:fixed}
+col.c-name{width:80px}col.c-code{width:70px}col.c-date{width:80px}
+col.c-nav{width:72px}col.c-amt{width:82px}col.c-sh{width:68px}
+col.c-snav{width:72px}col.c-samt{width:82px}col.c-ssh{width:68px}
+col.c-tinv{width:82px}col.c-tsell{width:72px}col.c-tsh{width:68px}
+col.c-cnav{width:80px}col.c-mkt{width:82px}
+col.c-rpnl{width:78px}col.c-pnl{width:82px}col.c-rate{width:72px}
+col.c-act{width:52px}
+
+thead th{background:var(--r800);color:#fff;padding:7px 5px;text-align:center;font-weight:500;font-size:11px;letter-spacing:.03em;white-space:nowrap;position:sticky;top:0;z-index:10;border-right:0.5px solid var(--r600);overflow:hidden;text-overflow:ellipsis}
+thead th:last-child{border-right:none}
+.thg{background:var(--r900)!important;font-size:10px;letter-spacing:.06em;color:var(--gold-l)!important}
+.thg th{background:var(--r900)!important;color:var(--gold-l)!important;font-size:10px!important}
+tbody tr{border-bottom:0.5px solid #f5eaea;transition:background .1s}
+tbody tr:hover{background:#fff8f8}
+tbody tr.sep-row{border-top:2px solid var(--r100)}
+td{padding:0;border-right:0.5px solid #f5edec;vertical-align:middle;overflow:hidden}
+td:last-child{border-right:none}
+.ce{display:block;width:100%;min-height:30px;padding:5px 6px;font-family:monospace;font-size:12px;text-align:center;cursor:text;outline:none;border:1.5px solid transparent;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:border-color .1s,background .1s}
+.ce:hover{border-color:var(--r200);background:#fffafa}
+.ce:focus{border-color:var(--r400)!important;background:#fff!important;z-index:5;position:relative;overflow:visible;white-space:normal}
+.ce.cn{font-family:inherit;font-weight:500;color:var(--r800);text-align:left;padding-left:8px}
+.ce.cc{color:#555}
+.ce.ro{background:#fafafa!important;cursor:default!important;color:#444}
+.ce.ro:hover{border-color:transparent!important;background:#fafafa!important}
+.ce.ro:focus{border-color:transparent!important;outline:none}
+.ce.nav-cell{background:#fffdf0!important;border-color:#f0e0a0!important}
+.ce.nav-cell:hover{background:#fff8e0!important;border-color:var(--gold)!important}
+.ce.nav-cell:focus{border-color:var(--gold)!important;background:#fff!important}
+.ce.nav-cell.refreshed{animation:navFlash 1.2s ease}
+@keyframes navFlash{0%{background:#bbf7d0}100%{background:#fffdf0}}
+.pos{color:var(--gpos)!important;font-weight:500}
+.neg{color:var(--gneg)!important;font-weight:500}
+td.act{padding:0 3px;width:52px}
+.row-acts{display:flex;gap:2px;justify-content:center;opacity:0;transition:opacity .12s}
+tr:hover .row-acts{opacity:1}
+.ib{background:none;border:none;cursor:pointer;font-size:13px;padding:3px 5px;border-radius:3px;line-height:1;transition:all .1s}
+.ib.iadd{color:#aaa}.ib.iadd:hover{color:var(--gpos);background:#f0faf0}
+.ib.idel{color:#aaa}.ib.idel:hover{color:var(--r400);background:#fff0f0}
+
+.footer{background:var(--r50);border-top:1px solid var(--r100);padding:7px 16px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--r600);flex-shrink:0}
+.footer-tip{color:#bbb;font-size:10px;font-family:monospace}
+
+.btn{font-size:12px;padding:5px 12px;border-radius:5px;border:1px solid;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-family:inherit}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-gold{background:var(--gold);color:#fff;border-color:var(--gold)}.btn-gold:hover:not(:disabled){background:#a87828}
+.btn-ghost{background:transparent;color:var(--r600);border-color:var(--r200)}.btn-ghost:hover:not(:disabled){background:var(--r50);border-color:var(--r400)}
+.btn-primary{background:var(--r600);color:#fff;border-color:var(--r600)}.btn-primary:hover:not(:disabled){background:var(--r800)}
+.btn-green{background:#2a7a44;color:#fff;border-color:#2a7a44}.btn-green:hover:not(:disabled){background:#1d5c32}
+.btn-spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.overlay{display:none;position:fixed;inset:0;z-index:999;background:rgba(80,19,19,.32);align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:10px;padding:26px 28px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;border-top:4px solid var(--r600)}
+.modal h2{font-size:15px;color:var(--r800);margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fr{margin-bottom:10px}
+.fr label{display:block;font-size:11px;color:var(--r600);margin-bottom:4px}
+.fr input{width:100%;padding:7px 9px;border:1px solid var(--r200);border-radius:5px;font-size:13px;font-family:monospace;outline:none;color:var(--r900)}
+.fr input:focus{border-color:var(--r400)}
+.tip-box{background:var(--r50);border:1px solid var(--r100);border-radius:5px;padding:7px 10px;font-size:11px;color:var(--r600);margin-bottom:12px}
+.pre-row{background:#f8f8f8;border-radius:6px;padding:8px 12px;font-size:11px;color:#666;margin-top:6px}
+.ma{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.confirm-modal{background:#fff;border-radius:10px;padding:24px 26px;width:320px;max-width:95vw;border-top:4px solid var(--r400)}
+.confirm-modal h3{font-size:14px;color:var(--r800);margin-bottom:10px}
+.confirm-modal p{font-size:13px;color:#555;line-height:1.6;margin-bottom:16px}
+
+/* 净值刷新状态 */
+.refresh-status{font-size:11px;padding:3px 8px;border-radius:10px;font-family:monospace}
+.refresh-status.ok{background:#e8f5e9;color:#2a7a44}
+.refresh-status.err{background:#fff0f0;color:var(--r600)}
+.refresh-status.ing{background:#e8f0ff;color:#3730a3}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="hd">
+    <div class="hd-left">
+      <span class="hd-icon">📈</span>
+      <div>
+        <div class="hd-title">基金定投记录表</div>
+        <div class="hd-sub" id="hdDate"></div>
+      </div>
+    </div>
+    <div class="hd-actions">
+      <button class="btn btn-ghost" onclick="exportCSV()">⬇ 导出</button>
+      <button class="btn btn-green" id="btnRefresh" onclick="refreshAllNav()" title="从天天基金获取最新净值">
+        <span id="refreshIcon">🔄</span> 刷新净值
+      </button>
+      <button class="btn btn-gold" onclick="openAdd()">＋ 新增记录</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="sc"><div class="sc-label">持仓品种</div><div class="sc-val" id="st0">0</div></div>
+    <div class="sc"><div class="sc-label">累计投入</div><div class="sc-val" id="st1">¥0</div></div>
+    <div class="sc"><div class="sc-label">当前市值</div><div class="sc-val" id="st2">¥0</div></div>
+    <div class="sc"><div class="sc-label">总盈亏</div><div class="sc-val" id="st3">¥0</div></div>
+    <div class="sc"><div class="sc-label">综合收益率</div><div class="sc-val" id="st4">0%</div></div>
+  </div>
+
+  <div class="nav-banner">
+    <span class="nav-banner-label">📊 净值</span>
+    <div class="nav-status" id="navStatus"><span style="color:#aaa;font-size:11px">点击「刷新净值」获取最新数据…</span></div>
+    <span class="nav-update-time" id="navUpdateTime"></span>
+    <span class="refresh-status" id="refreshStatus"></span>
+  </div>
+
+  <div class="tab-bar" id="tabBar"></div>
+
+  <div class="toolbar">
+    <span style="font-size:12px;color:var(--r600)">筛选：</span>
+    <select id="filterSel" onchange="render()" style="font-size:12px;padding:4px 8px;border:1px solid var(--r200);border-radius:5px;background:#fff;color:var(--r900);outline:none">
+      <option value="">全部基金</option>
+    </select>
+    <button class="btn btn-ghost" onclick="clearFilter()" style="padding:4px 10px;font-size:12px">✕</button>
+    <span class="toolbar-hint">点击单元格直接编辑 · 金底列=当前净值（自动刷新）· 灰底列自动计算</span>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <colgroup>
+        <col class="c-name"><col class="c-code"><col class="c-date">
+        <col class="c-nav"><col class="c-amt"><col class="c-sh">
+        <col class="c-snav"><col class="c-samt"><col class="c-ssh">
+        <col class="c-tinv"><col class="c-tsell"><col class="c-tsh">
+        <col class="c-cnav"><col class="c-mkt">
+        <col class="c-rpnl"><col class="c-pnl"><col class="c-rate">
+        <col class="c-act">
+      </colgroup>
+      <thead>
+        <tr class="thg">
+          <th colspan="2">基金信息</th><th>日期</th>
+          <th colspan="3">买入信息</th><th colspan="3">卖出信息</th>
+          <th colspan="4">持仓统计（自动计算）</th>
+          <th colspan="3">盈亏分析（自动计算）</th><th></th>
+        </tr>
+        <tr>
+          <th>指数名称</th><th>基金代码</th><th>日期</th>
+          <th>买入净值</th><th>买入金额</th><th>买入份数</th>
+          <th>卖出净值</th><th>卖出金额</th><th>卖出份数</th>
+          <th>累计投入</th><th>累计卖出</th><th>累计份数</th>
+          <th style="background:#6b5000!important">当前净值🔄</th><th>当前市值</th>
+          <th>已实现盈亏</th><th>总盈亏</th><th>盈亏比%</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <span id="rowCnt">共 0 条记录</span>
+    <span class="footer-tip">净值数据来源：天天基金 · 数据自动保存到本地</span>
+  </div>
+</div>
+
+<!-- 新增弹窗 -->
+<div class="overlay" id="addOverlay">
+  <div class="modal">
+    <h2>📝 新增定投记录</h2>
+    <div class="tip-box">💡 份数、持仓统计、盈亏全部自动计算；当前净值将由「刷新净值」自动获取</div>
+    <div class="fg">
+      <div class="fr"><label>指数名称 *</label><input id="aN" placeholder="如：沪深300" list="nameList" oninput="autoFillCode()"><datalist id="nameList"></datalist></div>
+      <div class="fr"><label>基金代码 *</label><input id="aC" placeholder="如：510300"></div>
+    </div>
+    <div class="fr"><label>日期 *</label><input id="aD" placeholder="如：2026.5.26"></div>
+    <div class="fg">
+      <div class="fr"><label>买入净值(元)</label><input id="aBN" type="number" step="0.001" placeholder="留空=无买入" oninput="preCalc()"></div>
+      <div class="fr"><label>买入金额(元)</label><input id="aBA" type="number" step="0.01" placeholder="0" oninput="preCalc()"></div>
+      <div class="fr"><label>卖出净值(元)</label><input id="aSN" type="number" step="0.001" placeholder="留空=无卖出" oninput="preCalc()"></div>
+      <div class="fr"><label>卖出金额(元)</label><input id="aSA" type="number" step="0.01" placeholder="0" oninput="preCalc()"></div>
+      <div class="fr"><label>已实现盈亏(元)</label><input id="aR" type="number" step="0.01" placeholder="卖出后填写"></div>
+    </div>
+    <div class="pre-row" id="preRow">预计：买入 — 份 · 卖出 — 份</div>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="closeAdd()">取消</button>
+      <button class="btn btn-primary" onclick="doAdd()">✔ 确认添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 删除确认 -->
+<div class="overlay" id="delOverlay">
+  <div class="confirm-modal">
+    <h3>⚠ 确认删除</h3>
+    <p id="delMsg"></p>
+    <div class="ma">
+      <button class="btn btn-ghost" onclick="closeDel()">取消</button>
+      <button class="btn" style="background:var(--r400);color:#fff;border-color:var(--r400)" onclick="confirmDel()">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SK = 'dingzou_v6';
+let records = [], nextId = 500, currentTab = 'all', pendingDelId = null;
+// 净值缓存：{ 基金代码: { nav, name, date, prevNav } }
+let navCache = {};
+
+const SEED = [
+  {id:1,name:'100红利',code:'159307',date:'2026.3.17',buyNav:1.101,buyAmt:15414,sellNav:'',sellAmt:'',curNav:1.043,realized:''},
+  {id:2,name:'100红利',code:'159307',date:'2026.4.17',buyNav:1.063,buyAmt:2551.2,sellNav:'',sellAmt:'',curNav:1.043,realized:''},
+  {id:3,name:'100红利',code:'159307',date:'2026.5.15',buyNav:1.056,buyAmt:2640,sellNav:'',sellAmt:'',curNav:1.042,realized:''},
+  {id:4,name:'卫星ETF',code:'563230',date:'2026.3.12',buyNav:1.532,buyAmt:1072.4,sellNav:'',sellAmt:'',curNav:1.455,realized:''},
+  {id:5,name:'卫星ETF',code:'563230',date:'2026.3.13',buyNav:1.529,buyAmt:1070.3,sellNav:'',sellAmt:'',curNav:1.455,realized:''},
+  {id:6,name:'卫星ETF',code:'563230',date:'2026.4.17',buyNav:1.49,buyAmt:2086,sellNav:'',sellAmt:'',curNav:1.455,realized:''},
+  {id:7,name:'卫星ETF',code:'563230',date:'2026.5.15',buyNav:1.49,buyAmt:2086,sellNav:'',sellAmt:'',curNav:1.455,realized:''},
+  {id:8,name:'卫星ETF',code:'563230',date:'2026.5.21',buyNav:1.446,buyAmt:2024.4,sellNav:'',sellAmt:'',curNav:1.446,realized:''},
+  {id:9,name:'卫星ETF',code:'563230',date:'2026.5.25',buyNav:'',buyAmt:'',sellNav:1.502,sellAmt:2102.8,curNav:1.464,realized:18.03},
+  {id:10,name:'港股科技',code:'513010',date:'2026.3.13',buyNav:0.669,buyAmt:2007,sellNav:'',sellAmt:'',curNav:0.646,realized:''},
+  {id:11,name:'港股科技',code:'513010',date:'2026.4.17',buyNav:0.665,buyAmt:2128,sellNav:'',sellAmt:'',curNav:0.646,realized:''},
+  {id:12,name:'港股科技',code:'513010',date:'2026.5.15',buyNav:0.647,buyAmt:2135.1,sellNav:'',sellAmt:'',curNav:0.646,realized:''},
+  {id:13,name:'港股科技',code:'513010',date:'2026.5.21',buyNav:0.627,buyAmt:2006.4,sellNav:'',sellAmt:'',curNav:0.646,realized:''},
+  {id:14,name:'纳指ETF',code:'159941',date:'2026.5.21',buyNav:1.566,buyAmt:626.4,sellNav:'',sellAmt:'',curNav:1.633,realized:''},
+  {id:15,name:'纳指ETF',code:'159941',date:'2026.5.26',buyNav:1.633,buyAmt:1143.1,sellNav:'',sellAmt:'',curNav:1.632,realized:''},
+];
+
+const N=v=>parseFloat(v)||0, has=v=>v!==''&&v!=null&&!isNaN(parseFloat(v));
+const f2=v=>has(v)?(+v).toFixed(2):'', f3=v=>has(v)?(+v).toFixed(3):'', f4=v=>has(v)?(+v).toFixed(4):'';
+
+function load(){
+  try{const s=localStorage.getItem(SK);if(s){const d=JSON.parse(s);records=d.r||SEED.map(r=>({...r}));nextId=d.id||500;navCache=d.nc||{};}}
+  catch(e){records=SEED.map(r=>({...r}));}
+  if(!records.length) records=SEED.map(r=>({...r}));
+}
+function save(){try{localStorage.setItem(SK,JSON.stringify({r:records,id:nextId,nc:navCache}));}catch(e){}}
+
+function dateKey(d){return +((d||'').replace(/[.\-\/]/g,'').padEnd(8,'0'));}
+
+function computeAll(){
+  const order=[];records.forEach(r=>{if(!order.includes(r.name))order.push(r.name);});
+  const out=[];
+  order.forEach(name=>{
+    const group=records.filter(r=>r.name===name).sort((a,b)=>dateKey(a.date)-dateKey(b.date));
+    let ti=0,ts=0,tsh=0;
+    group.forEach(r=>{
+      const bsh=has(r.buyNav)&&has(r.buyAmt)?Math.round(N(r.buyAmt)/N(r.buyNav)):0;
+      const ssh=has(r.sellNav)&&has(r.sellAmt)?Math.round(N(r.sellAmt)/N(r.sellNav)):0;
+      ti=+(ti+N(r.buyAmt)).toFixed(4);ts=+(ts+N(r.sellAmt)).toFixed(4);tsh+=bsh-ssh;
+      const mkt=has(r.curNav)?+(N(r.curNav)*tsh).toFixed(4):null;
+      const pnl=mkt!==null?+(mkt-ti+ts).toFixed(4):null;
+      const rate=pnl!==null&&ti>0?+(pnl/ti).toFixed(6):null;
+      out.push({...r,bsh,ssh,ti:+ti.toFixed(2),ts:+ts.toFixed(2),tsh,mkt,pnl,rate});
+    });
+  });
+  return out;
+}
+
+function getLatestByFund(computed){
+  const map={};
+  [...new Set(computed.map(r=>r.name))].forEach(name=>{
+    const rows=computed.filter(r=>r.name===name);
+    map[name]=rows[rows.length-1];
+  });
+  return map;
+}
+
+function updateStats(computed){
+  const latest=getLatestByFund(computed);
+  let ti=0,tm=0,tp=0;
+  Object.values(latest).forEach(r=>{ti+=r.ti||0;tm+=r.mkt||0;tp+=r.pnl||0;});
+  const rate=ti>0?tp/ti:0;
+  document.getElementById('st0').textContent=Object.keys(latest).length;
+  document.getElementById('st1').textContent='¥'+ti.toFixed(0);
+  document.getElementById('st2').textContent='¥'+tm.toFixed(0);
+  const pe=document.getElementById('st3');pe.textContent=(tp>=0?'+':'')+'¥'+tp.toFixed(0);pe.className='sc-val '+(tp>=0?'pos':'neg');
+  const re=document.getElementById('st4');re.textContent=(rate>=0?'+':'')+(rate*100).toFixed(2)+'%';re.className='sc-val '+(rate>=0?'pos':'neg');
+}
+
+function updateNavBanner(){
+  // 收集每个基金对应的code
+  const fundCodes={};
+  records.forEach(r=>{fundCodes[r.name]=r.code;});
+  const chips=Object.entries(fundCodes).map(([name,code])=>{
+    const c=navCache[code];
+    if(!c)return`<span class="nav-chip loading"><span class="chip-code">${code}</span> <b>${name}</b> <span class="chip-nav">—</span></span>`;
+    const chg=c.prevNav&&has(c.prevNav)?(()=>{const d=N(c.nav)-N(c.prevNav),p=d/N(c.prevNav)*100;return`<span class="chip-chg ${d>0.0001?'up':d<-0.0001?'dn':'flat'}">${d>=0?'+':''}${p.toFixed(2)}%</span>`;})():'';
+    return`<span class="nav-chip"><span class="chip-code">${code}</span><b>${name}</b><span class="chip-nav">${N(c.nav).toFixed(4)}</span>${chg}<span style="color:#aaa;font-size:10px">${c.date||''}</span></span>`;
+  }).join('');
+  document.getElementById('navStatus').innerHTML=chips||'<span style="color:#aaa;font-size:11px">点击「刷新净值」获取最新数据…</span>';
+  const times=Object.values(navCache).filter(c=>c&&c.fetchTime).map(c=>c.fetchTime);
+  document.getElementById('navUpdateTime').textContent=times.length?'更新于 '+new Date(Math.max(...times.map(t=>new Date(t)))).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}):'';
+}
+
+function updateTabs(computed){
+  const names=[...new Set(computed.map(r=>r.name))];
+  document.getElementById('tabBar').innerHTML=['全部',...names].map(t=>{
+    const key=t==='全部'?'all':t;
+    return`<div class="tab${currentTab===key?' active':''}" onclick="switchTab('${key}')">${t}</div>`;
+  }).join('');
+  const sel=document.getElementById('filterSel'),cur=sel.value;
+  sel.innerHTML='<option value="">全部基金</option>'+names.map(n=>`<option value="${n}"${n===cur?' selected':''}>${n}</option>`).join('');
+  document.getElementById('nameList').innerHTML=names.map(n=>`<option value="${n}">`).join('');
+}
+function switchTab(k){currentTab=k;render();}
+
+function render(){
+  const computed=computeAll();
+  updateStats(computed);updateTabs(computed);updateNavBanner();
+  const fn=document.getElementById('filterSel').value;
+  let rows=computed;
+  if(currentTab!=='all')rows=rows.filter(r=>r.name===currentTab);
+  if(fn)rows=rows.filter(r=>r.name===fn);
+  let html='',ln=null;
+  rows.forEach(r=>{
+    const sep=ln!==null&&r.name!==ln?' sep-row':'';ln=r.name;
+    const pC=r.pnl>0?'pos':r.pnl<0?'neg':'',rC=r.rate>0?'pos':r.rate<0?'neg':'';
+    const pT=r.pnl!==null?(r.pnl>=0?'+':'')+r.pnl.toFixed(2):'—';
+    const rT=r.rate!==null?(r.rate>=0?'+':'')+(r.rate*100).toFixed(2)+'%':'—';
+    const rlC=has(r.realized)?(N(r.realized)>=0?'pos':'neg'):'';
+    const rlT=has(r.realized)?(N(r.realized)>=0?'+':'')+N(r.realized).toFixed(2):'—';
+    html+=`<tr class="${sep}" data-id="${r.id}">
+      <td><div class="ce cn" contenteditable="true" data-f="name" data-id="${r.id}" onblur="onEdit(this)">${r.name}</div></td>
+      <td><div class="ce cc" contenteditable="true" data-f="code" data-id="${r.id}" onblur="onEdit(this)">${r.code}</div></td>
+      <td><div class="ce" contenteditable="true" data-f="date" data-id="${r.id}" onblur="onEdit(this)">${r.date}</div></td>
+      <td><div class="ce" contenteditable="true" data-f="buyNav" data-id="${r.id}" onblur="onEdit(this)">${f3(r.buyNav)||'—'}</div></td>
+      <td><div class="ce" contenteditable="true" data-f="buyAmt" data-id="${r.id}" onblur="onEdit(this)">${f2(r.buyAmt)||'—'}</div></td>
+      <td><div class="ce ro">${r.bsh||'—'}</div></td>
+      <td><div class="ce" contenteditable="true" data-f="sellNav" data-id="${r.id}" onblur="onEdit(this)">${f3(r.sellNav)||'—'}</div></td>
+      <td><div class="ce" contenteditable="true" data-f="sellAmt" data-id="${r.id}" onblur="onEdit(this)">${f2(r.sellAmt)||'—'}</div></td>
+      <td><div class="ce ro">${r.ssh||'—'}</div></td>
+      <td><div class="ce ro">${f2(r.ti)}</div></td>
+      <td><div class="ce ro">${f2(r.ts)||'0.00'}</div></td>
+      <td><div class="ce ro">${r.tsh}</div></td>
+      <td><div class="ce nav-cell ro" title="由「刷新净值」自动更新">${f4(r.curNav)||'—'}</div></td>
+      <td><div class="ce ro">${r.mkt!==null?r.mkt.toFixed(2):'—'}</div></td>
+      <td><div class="ce ${rlC}" contenteditable="true" data-f="realized" data-id="${r.id}" onblur="onEdit(this)">${rlT}</div></td>
+      <td><div class="ce ro ${pC}">${pT}</div></td>
+      <td><div class="ce ro ${rC}">${rT}</div></td>
+      <td class="act"><div class="row-acts">
+        <button class="ib iadd" onclick="insertAfter(${r.id})" title="插入行">＋</button>
+        <button class="ib idel" onclick="askDel(${r.id})" title="删除">✕</button>
+      </div></td>
+    </tr>`;
+  });
+  document.getElementById('tbody').innerHTML=html;
+  document.getElementById('rowCnt').textContent=`共 ${rows.length} 条记录（总 ${records.length} 条）`;
+}
+
+// ══════════════════════════════════════════════
+//  自动刷新净值（通过 /api/nav 代理）
+// ══════════════════════════════════════════════
+async function refreshAllNav(){
+  const codes=[...new Set(records.map(r=>r.code))].filter(Boolean);
+  if(!codes.length)return;
+
+  const btn=document.getElementById('btnRefresh');
+  const icon=document.getElementById('refreshIcon');
+  const st=document.getElementById('refreshStatus');
+  btn.disabled=true;
+  icon.style.display='inline-block';
+  icon.className='btn-spin';
+  icon.textContent='⟳';
+  st.className='refresh-status ing';
+  st.textContent='获取中…';
+
+  let ok=0,fail=0;
+  for(const code of codes){
+    try{
+      const res=await fetch(`/api/nav?code=${code}`);
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      const data=await res.json();
+      if(data.nav){
+        const old=navCache[code]?navCache[code].nav:null;
+        navCache[code]={nav:data.nav,date:data.date,prevNav:old,fetchTime:new Date().toISOString()};
+        // 更新所有该code的记录
+        records.forEach(r=>{if(r.code===code)r.curNav=data.nav;});
+        ok++;
+      } else { fail++; }
+    }catch(e){ fail++; console.warn('净值获取失败',code,e); }
+  }
+
+  save();
+  btn.disabled=false;
+  icon.className='';
+  icon.textContent='🔄';
+  st.className='refresh-status '+(fail===0?'ok':'err');
+  st.textContent=fail===0?`✓ 已更新 ${ok} 支`:`✓${ok} ✗${fail}`;
+
+  // 闪烁动画
+  render();
+  setTimeout(()=>{
+    document.querySelectorAll('.nav-cell').forEach(el=>{el.classList.remove('refreshed');void el.offsetWidth;el.classList.add('refreshed');});
+  },100);
+}
+
+// ══════════════════════════════════════════════
+//  单元格编辑
+// ══════════════════════════════════════════════
+document.addEventListener('focusin',e=>{
+  const el=e.target;
+  if(el.classList.contains('ce')&&el.hasAttribute('contenteditable')&&!el.classList.contains('ro')){
+    const r=document.createRange();r.selectNodeContents(el);const s=window.getSelection();s.removeAllRanges();s.addRange(r);
+  }
+});
+document.addEventListener('keydown',e=>{
+  if(!e.target.classList||!e.target.classList.contains('ce'))return;
+  if(e.key==='Enter'){e.preventDefault();e.target.blur();}
+  if(e.key==='Escape')e.target.blur();
+  if(e.key==='Tab'){
+    e.preventDefault();
+    const edits=[...document.querySelectorAll('.ce[contenteditable="true"]:not(.ro)')];
+    const i=edits.indexOf(e.target);e.target.blur();
+    const next=edits[e.shiftKey?i-1:i+1];if(next)next.focus();
+  }
+});
+function onEdit(el){
+  const id=+el.dataset.id,field=el.dataset.f;
+  let val=el.innerText.trim().replace(/^[—\-]$/,'');
+  const rec=records.find(r=>r.id===id);if(!rec)return;
+  const numFields=['buyNav','buyAmt','sellNav','sellAmt','curNav','realized'];
+  if(numFields.includes(field)){if(val==='')rec[field]='';else{const p=parseFloat(val);if(!isNaN(p))rec[field]=p;}}
+  else{if(val)rec[field]=val;}
+  save();render();
+}
+
+function insertAfter(id){
+  const ref=records.find(r=>r.id===id);if(!ref)return;
+  const nr={id:nextId++,name:ref.name,code:ref.code,date:'',buyNav:'',buyAmt:'',sellNav:'',sellAmt:'',curNav:ref.curNav,realized:''};
+  const li=records.reduce((a,r,i)=>r.name===ref.name?i:a,-1);
+  records.splice(li+1,0,nr);save();render();
+  setTimeout(()=>{const row=document.querySelector(`tr[data-id="${nr.id}"]`);if(row){const dc=row.querySelector('[data-f="date"]');if(dc)dc.focus();}},60);
+}
+function askDel(id){
+  pendingDelId=id;const rec=records.find(r=>r.id===id);
+  document.getElementById('delMsg').innerHTML=`确定要删除 <b>${rec?rec.name:''}</b> ${rec?rec.date:''} 的记录？<br>该基金后续记录的累计数据将自动重新计算。`;
+  document.getElementById('delOverlay').classList.add('open');
+}
+function closeDel(){document.getElementById('delOverlay').classList.remove('open');pendingDelId=null;}
+function confirmDel(){if(pendingDelId===null)return;records=records.filter(r=>r.id!==pendingDelId);save();closeDel();render();}
+document.getElementById('delOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('delOverlay'))closeDel();});
+
+function openAdd(){
+  document.getElementById('addOverlay').classList.add('open');
+  document.getElementById('aD').value=new Date().toLocaleDateString('zh-CN').replace(/\//g,'.');
+  ['aN','aC','aBN','aBA','aSN','aSA','aR'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+  if(currentTab!=='all'){
+    document.getElementById('aN').value=currentTab;
+    const rec=records.find(r=>r.name===currentTab);
+    if(rec)document.getElementById('aC').value=rec.code;
+  }
+  preCalc();setTimeout(()=>document.getElementById('aN').focus(),80);
+}
+function closeAdd(){document.getElementById('addOverlay').classList.remove('open');}
+document.getElementById('addOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('addOverlay'))closeAdd();});
+
+function autoFillCode(){
+  const name=document.getElementById('aN').value.trim();
+  const rec=records.find(r=>r.name===name);
+  if(rec)document.getElementById('aC').value=rec.code;
+  preCalc();
+}
+function preCalc(){
+  const bn=document.getElementById('aBN').value,ba=document.getElementById('aBA').value;
+  const sn=document.getElementById('aSN').value,sa=document.getElementById('aSA').value;
+  const bsh=has(bn)&&has(ba)?Math.round(N(ba)/N(bn)):null;
+  const ssh=has(sn)&&has(sa)?Math.round(N(sa)/N(sn)):null;
+  document.getElementById('preRow').textContent=`预计：买入 ${bsh!==null?bsh+'份':'—'} · 卖出 ${ssh!==null?ssh+'份':'—'}`;
+}
+function doAdd(){
+  const name=document.getElementById('aN').value.trim(),code=document.getElementById('aC').value.trim(),date=document.getElementById('aD').value.trim();
+  if(!name||!code||!date){alert('请填写指数名称、基金代码和日期');return;}
+  const g=id=>document.getElementById(id).value;
+  const rec={id:nextId++,name,code,date,buyNav:g('aBN')?+g('aBN'):'',buyAmt:g('aBA')?+g('aBA'):'',sellNav:g('aSN')?+g('aSN'):'',sellAmt:g('aSA')?+g('aSA'):'',curNav:'',realized:g('aR')?+g('aR'):''};
+  records.push(rec);currentTab=name;save();closeAdd();render();
+}
+
+function clearFilter(){document.getElementById('filterSel').value='';render();}
+
+function exportCSV(){
+  const computed=computeAll();
+  const header=['指数名称','基金代码','日期','买入净值','买入金额','买入份数','卖出净值','卖出金额','卖出份数','累计投入','累计卖出','累计份数','当前净值','当前市值','已实现盈亏','总盈亏','盈亏比%'];
+  const body=computed.map(r=>[r.name,r.code,r.date,f3(r.buyNav),f2(r.buyAmt),r.bsh||'',f3(r.sellNav),f2(r.sellAmt),r.ssh||'',f2(r.ti),f2(r.ts),r.tsh,f4(r.curNav),r.mkt!==null?r.mkt.toFixed(2):'',has(r.realized)?N(r.realized).toFixed(2):'',r.pnl!==null?r.pnl.toFixed(2):'',r.rate!==null?(r.rate*100).toFixed(2)+'%':'']);
+  const csv='\uFEFF'+[header,...body].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='定投记录_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+
+document.getElementById('hdDate').textContent=new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+load();render();
+</script>
+</body>
+</html>
